@@ -11,14 +11,11 @@ RE_DEFINE_COLOR = re.compile(r"CLITERAL\(Color\){ (\d+), (\d+), (\d+), (\d+) }")
 
 def generate_type(s):
     s = s.replace("const", "").strip()
-    match = RE_TYPE_ARR.match(s)
-    if match:
+    if match := RE_TYPE_ARR.match(s):
         return f"[{match[2]}]{generate_type(match[1])}"
-    match = RE_TYPE_PTR.match(s)
-    if match:
+    if match := RE_TYPE_PTR.match(s):
         return f"*{generate_type(match[1])}"
-    match = RE_TYPE_UXX.match(s)
-    if match:
+    if match := RE_TYPE_UXX.match(s):
         return f"u{match[1]}"
     if s == "int":
         return "sint"
@@ -26,17 +23,13 @@ def generate_type(s):
         return "sshort"
     if s == "long":
         return "slong"
-    if s == "long long":
-        return "long long"
-    return s.strip()
+    return "long long" if s == "long long" else s.strip()
 
 def generate_version(j):
     name = j["name"]
     type = j["type"]
     value = j["value"]
-    if name != "RAYLIB_VERSION":
-        return None
-    return f"let {name} = \"{value}\";"
+    return None if name != "RAYLIB_VERSION" else f'let {name} = \"{value}\";'
 
 def generate_color(j):
     name = j["name"]
@@ -47,7 +40,6 @@ def generate_color(j):
         return None
     match = RE_DEFINE_COLOR.match(value)
     return f"let {name} = (:Color){{.r={match[1]}, .g={match[2]}, .b={match[3]}, .a={match[4]}}}; # {desc}"
-    return None
 
 
 def generate_alias(j):
@@ -60,9 +52,9 @@ def generate_callback(j):
     is_variadic = False
     name = j["name"]
     desc = j["description"]
-    func_params = list()
+    func_params = []
     for param in j["params"]:
-        if param["type"] == "..." or param["type"] == "va_list":
+        if param["type"] in ["...", "va_list"]:
             is_variadic = True
         param_type = generate_type(param["type"])
         func_params.append(param_type)
@@ -78,13 +70,12 @@ def generate_callback(j):
     return f"alias {name} = func({', '.join(func_params)}) {func_return}; # {desc}"
 
 def generate_enum(j):
-    lines = list()
     name = j["name"]
     desc = j["description"]
     # XXX: Use uint override for config flags since SetConfigFlags takes
     # `unsigned int` as its `flags` parameter.
     type = "uint" if name == "ConfigFlags" else "sint"
-    lines.append(f"alias {name} = {type}; # (enum) {desc}")
+    lines = [f"alias {name} = {type}; # (enum) {desc}"]
     for value in j["values"]:
         value_name = value["name"]
         value_value = value["value"]
@@ -93,26 +84,25 @@ def generate_enum(j):
     return "\n".join(lines)
 
 def generate_struct(j):
-    lines = list()
     name = j["name"]
     desc = j["description"]
-    lines.append(f"struct {name} {{")
+    lines = [f"struct {name} {{"]
     for field in j["fields"]:
         field_name = field["name"]
         field_type = generate_type(field["type"])
         field_desc = field["description"]
         lines.append(f"    var {field_name}: {field_type}; # {field_desc}")
-    lines.append(f"}}")
+    lines.append("}}")
     return "\n".join(lines)
 
 def generate_function(j):
     is_variadic = False
     name = j["name"]
     desc = j["description"]
-    func_params = list()
+    func_params = []
     if "params" in j:
         for param in j["params"]:
-            if param["type"] == "..." or param["type"] == "va_list":
+            if param["type"] in ["...", "va_list"]:
                 is_variadic = True
             param_name = param["name"]
             param_type = generate_type(param["type"])
